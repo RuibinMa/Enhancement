@@ -896,3 +896,121 @@ void MainWindow::on_action_Load_Centerlines_triggered()
     QVTKWidget* right = this->findChild<QVTKWidget*>("right");
     right->GetRenderWindow()->Render();
 }
+
+void MainWindow::on_action_Compute_Height_triggered()
+{
+    vtkSmartPointer<vtkSmoothPolyDataFilter> smoothFilter = vtkSmartPointer<vtkSmoothPolyDataFilter>::New();
+    smoothFilter->SetInputData(m_colon->GetOutput());
+    smoothFilter->SetNumberOfIterations(30);
+    smoothFilter->SetRelaxationFactor(0.2);
+    //smoothFilter->FeatureEdgeSmoothingOff();
+    smoothFilter->BoundarySmoothingOn();
+    smoothFilter->Update();
+
+    vtkSmartPointer<vtkPolyData> smoothed = vtkSmartPointer<vtkPolyData>::New();
+    smoothed->DeepCopy(smoothFilter->GetOutput());
+    std::cout<<smoothed->GetNumberOfPoints()<<endl;
+
+    vtkSmartPointer<vtkPolyDataNormals> normalGenerator = vtkSmartPointer<vtkPolyDataNormals>::New();
+    normalGenerator->SetInputData(smoothed);
+    normalGenerator->ComputePointNormalsOn();
+    normalGenerator->ComputeCellNormalsOff();
+    normalGenerator->ConsistencyOn();
+    normalGenerator->SplittingOff();
+    normalGenerator->Update();
+    smoothed = normalGenerator->GetOutput();
+
+    vtkFloatArray* normalDataFloat =
+      vtkFloatArray::SafeDownCast(smoothed->GetPointData()->GetArray("Normals"));
+
+    if(normalDataFloat)
+    {
+      int nc = normalDataFloat->GetNumberOfTuples();
+      std::cout << "There are " << nc
+              << " components in normalDataFloat" << std::endl;
+    }
+
+
+
+    unsigned char red[3] = {255,0,0};
+    unsigned char blue[3] = {0,0,255};
+    vtkSmartPointer<vtkUnsignedCharArray> colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    colors->SetNumberOfComponents(3);
+    colors->SetName("Colors");
+
+    double minVal = INFINITY;
+    double maxVal = -INFINITY;
+    vtkSmartPointer<vtkDoubleArray> Heights = vtkSmartPointer<vtkDoubleArray>::New();
+    for(int i = 0; i < smoothed->GetNumberOfPoints(); i++){
+        double newp[3];
+        double oldp[3];
+        m_colon->GetOutput()->GetPoint(i, oldp);
+        smoothed->GetPoint(i, newp);
+
+        double v[3];
+        vtkMath::Subtract(newp, oldp, v);
+        float normal[3];
+        normalDataFloat->GetTypedTuple(i, normal);
+
+        double val = vtkMath::Norm(v) * ((v[0]*(double)normal[0] + v[1]*(double)normal[1] + v[2]*(double)normal[2]) >=0 ? 1 : -1);
+
+        minVal = val < minVal ? val : minVal;
+        maxVal = val > maxVal ? val : maxVal;
+
+        Heights->InsertNextValue(val);
+    }
+
+    for(int i = 0; i < Heights->GetNumberOfValues(); i++){
+        double r = (Heights->GetValue(i) - minVal) / (maxVal - minVal);
+        unsigned char color[3];
+        color[0] = (unsigned char)(r * (double)blue[0] + (1-r) * (double)red[0]);
+        color[1] = (unsigned char)(r * (double)blue[1] + (1-r) * (double)red[1]);
+        color[2] = (unsigned char)(r * (double)blue[2] + (1-r) * (double)red[2]);
+
+        //std::cout<<color[0]<<" "<<color[1]<<" "<<color[2]<<endl;
+        colors->InsertNextTypedTuple(color);
+    }
+
+    m_colon->GetOutput()->GetPointData()->SetScalars(colors);
+    smoothed->GetPointData()->SetScalars(colors);
+
+    vtkSmartPointer<vtkPolyDataMapper> smoothedMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    smoothedMapper->SetInputData(m_colon->GetOutput());
+    smoothedMapper->Update();
+
+    vtkSmartPointer<vtkActor> smoothedActor = vtkSmartPointer<vtkActor>::New();
+    smoothedActor->SetMapper(smoothedMapper);
+
+    m_rendermanager_right->renderModel(smoothedActor);
+    QVTKWidget* right = this->findChild<QVTKWidget*>("right");
+    right->GetRenderWindow()->Render();
+}
+
+/*
+vtkSmartPointer<vtkDoubleArray> MainWindow::ComputeNormals(vtkSmartPointer<vtkPolyData> mesh){
+
+    int count = 0;
+    int seed = 0;
+    vtkSmartPointer<vtkIdList> currentlevel = vtkSmartPointer<vtkIdList>::New();
+    // init
+    currentlevel->InsertNextId(seed);
+
+    while(currentlevel->GetNumberOfIds() > 0)
+    {
+        count += currentlevel->GetNumberOfIds();
+        //std::cout<<"processed "<<count<<" points"<<endl;
+        vtkSmartPointer<vtkIdList> nextlevel = vtkSmartPointer<vtkIdList>::New();
+        for(vtkIdType n = 0; n < currentlevel->GetNumberOfIds(); n++)
+        {
+            vtkIdType pointid = currentlevel->GetId(n);
+            vtkSmartPointer<vtkIdList> connectedVertices = vtkSmartPointer<vtkIdList>::New();
+            connectedVertices = GetConnectedVertices(t_colon, pointid);
+
+
+
+        }
+        currentlevel->Reset();
+        currentlevel->DeepCopy(nextlevel);
+    } // while(1)
+}
+*/

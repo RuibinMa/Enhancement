@@ -69,6 +69,9 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 
+#include <vtkPolyDataNormals.h>
+#include <vtkFloatArray.h>
+#include <vtkAlgorithm.h>
 namespace Ui {
 class MainWindow;
 }
@@ -83,6 +86,7 @@ public:
     void addlight();
     vtkSmartPointer<vtkPolyData> GeodesicPath(vtkSmartPointer<vtkPolyData> points);
     vtkSmartPointer<vtkPolyData> Upsampling(vtkSmartPointer<vtkPolyData> path);
+    vtkSmartPointer<vtkDoubleArray> ComputeNormals(vtkSmartPointer<vtkPolyData> mesh);
     RenderManager* GetRenderManager(int side = 0)
     {
         if(side == 0) return m_rendermanager;
@@ -121,6 +125,8 @@ private slots:
     void on_horizontalScrollBar_sliderMoved(int position);
 
     void on_action_Load_Centerlines_triggered();
+
+    void on_action_Compute_Height_triggered();
 
 private:
     Ui::MainWindow *ui;

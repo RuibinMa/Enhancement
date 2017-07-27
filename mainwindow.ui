@@ -111,8 +111,15 @@
     <addaction name="actionLoad_Centerline"/>
     <addaction name="action_Deform_Colon"/>
    </widget>
+   <widget class="QMenu" name="menu_Depth_Map">
+    <property name="title">
+     <string>&amp;Depth Map</string>
+    </property>
+    <addaction name="action_Compute_Height"/>
+   </widget>
    <addaction name="menuFiles"/>
    <addaction name="menuTools"/>
+   <addaction name="menu_Depth_Map"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">
@@ -146,6 +153,11 @@
   <action name="action_Load_Centerlines">
    <property name="text">
     <string>&amp;Load Centerlines</string>
+   </property>
+  </action>
+  <action name="action_Compute_Height">
+   <property name="text">
+    <string>&amp;Compute Height</string>
    </property>
   </action>
  </widget>
