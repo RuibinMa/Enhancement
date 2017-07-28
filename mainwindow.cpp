@@ -971,17 +971,19 @@ void MainWindow::on_action_Compute_Height_triggered()
         colors->InsertNextTypedTuple(color);
     }
 
-    m_colon->GetOutput()->GetPointData()->SetScalars(colors);
-    smoothed->GetPointData()->SetScalars(colors);
+    //m_colon->GetOutput()->GetPointData()->SetScalars(colors);
+    vtkSmartPointer<vtkPolyData> heightmap = vtkSmartPointer<vtkPolyData>::New();
+    heightmap->DeepCopy(m_colon->GetOutput());
+    heightmap->GetPointData()->SetScalars(colors);
 
-    vtkSmartPointer<vtkPolyDataMapper> smoothedMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    smoothedMapper->SetInputData(m_colon->GetOutput());
-    smoothedMapper->Update();
+    vtkSmartPointer<vtkPolyDataMapper> Mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    Mapper->SetInputData(heightmap);
+    Mapper->Update();
 
-    vtkSmartPointer<vtkActor> smoothedActor = vtkSmartPointer<vtkActor>::New();
-    smoothedActor->SetMapper(smoothedMapper);
+    vtkSmartPointer<vtkActor> Actor = vtkSmartPointer<vtkActor>::New();
+    Actor->SetMapper(Mapper);
 
-    m_rendermanager_right->renderModel(smoothedActor);
+    m_rendermanager_right->renderModel(Actor);
     QVTKWidget* right = this->findChild<QVTKWidget*>("right");
     right->GetRenderWindow()->Render();
 }
