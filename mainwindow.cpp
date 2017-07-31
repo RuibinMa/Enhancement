@@ -940,6 +940,12 @@ void MainWindow::on_action_Compute_Height_triggered()
 
     double minVal = INFINITY;
     double maxVal = -INFINITY;
+
+    vtkSmartPointer<vtkPolyData> enhancement = vtkSmartPointer<vtkPolyData>::New();
+    enhancement->DeepCopy(m_colon->GetOutput());
+    vtkSmartPointer<vtkPoints> enhancedpoints = vtkSmartPointer<vtkPoints>::New();
+    enhancedpoints->DeepCopy(enhancement->GetPoints());
+
     vtkSmartPointer<vtkDoubleArray> Heights = vtkSmartPointer<vtkDoubleArray>::New();
     for(int i = 0; i < smoothed->GetNumberOfPoints(); i++){
         double newp[3];
@@ -949,8 +955,19 @@ void MainWindow::on_action_Compute_Height_triggered()
 
         double v[3];
         vtkMath::Subtract(newp, oldp, v);
+
         float normal[3];
         normalDataFloat->GetTypedTuple(i, normal);
+
+        if((v[0]*(double)normal[0] + v[1]*(double)normal[1] + v[2]*(double)normal[2]) < 0){
+            double p[3];
+            enhancement->GetPoint(i, p);
+            double vv[3];
+            vv[0] = v[0]; vv[1] = v[1]; vv[2] = v[2];
+            vtkMath::MultiplyScalar(vv, -1);
+            vtkMath::Add(p, vv, p);
+            enhancedpoints->SetPoint(i, p);
+        }
 
         double val = vtkMath::Norm(v) * ((v[0]*(double)normal[0] + v[1]*(double)normal[1] + v[2]*(double)normal[2]) >=0 ? 1 : -1);
 
@@ -959,6 +976,8 @@ void MainWindow::on_action_Compute_Height_triggered()
 
         Heights->InsertNextValue(val);
     }
+
+    enhancement->SetPoints(enhancedpoints);
 
     for(int i = 0; i < Heights->GetNumberOfValues(); i++){
         double r = (Heights->GetValue(i) - minVal) / (maxVal - minVal);
@@ -971,13 +990,17 @@ void MainWindow::on_action_Compute_Height_triggered()
         colors->InsertNextTypedTuple(color);
     }
 
+
     //m_colon->GetOutput()->GetPointData()->SetScalars(colors);
+
     vtkSmartPointer<vtkPolyData> heightmap = vtkSmartPointer<vtkPolyData>::New();
     heightmap->DeepCopy(m_colon->GetOutput());
     heightmap->GetPointData()->SetScalars(colors);
 
+
     vtkSmartPointer<vtkPolyDataMapper> Mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     Mapper->SetInputData(heightmap);
+    //Mapper->SetInputData(enhancement);
     Mapper->Update();
 
     vtkSmartPointer<vtkActor> Actor = vtkSmartPointer<vtkActor>::New();
