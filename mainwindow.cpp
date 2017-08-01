@@ -997,10 +997,12 @@ void MainWindow::on_action_Compute_Height_triggered()
     heightmap->DeepCopy(m_colon->GetOutput());
     heightmap->GetPointData()->SetScalars(colors);
 
+    //m_filemanager->SaveFile(heightmap, "heightmap.ply");
+
 
     vtkSmartPointer<vtkPolyDataMapper> Mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    Mapper->SetInputData(heightmap);
-    //Mapper->SetInputData(enhancement);
+    //Mapper->SetInputData(heightmap);
+    Mapper->SetInputData(enhancement);
     Mapper->Update();
 
     vtkSmartPointer<vtkActor> Actor = vtkSmartPointer<vtkActor>::New();

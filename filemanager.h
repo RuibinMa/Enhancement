@@ -10,6 +10,7 @@
 #include <vtkSTLWriter.h>
 #include <vtkOBJReader.h>
 #include <vtkPLYReader.h>
+#include <vtkPLYWriter.h>
 #include <vtkPoints.h>
 #include <vtkCellArray.h>
 #include <vtkUnsignedCharArray.h>
