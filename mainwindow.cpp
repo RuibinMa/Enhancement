@@ -239,7 +239,7 @@ void MainWindow::on_actionLoad_Centerline_triggered()
 
 
     vtkSmartPointer<vtkPolyData> newColonPoly = vtkSmartPointer<vtkPolyData>::New();
-    newColonPoly = m_centerline->EliminateTorsion(m_rendermanager,m_rendermanager_right, m_colon->GetOutput(), m_filemanager);
+    //newColonPoly = m_centerline->EliminateTorsion(m_rendermanager,m_rendermanager_right, m_colon->GetOutput(), m_filemanager);
     m_colon_new->Object::SetInput(newColonPoly);
 
     m_filemanager->SaveFile(m_centerline->GetOutput(), "ModifiedCenterline.vtp");
@@ -1001,8 +1001,8 @@ void MainWindow::on_action_Compute_Height_triggered()
 
 
     vtkSmartPointer<vtkPolyDataMapper> Mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    //Mapper->SetInputData(heightmap);
-    Mapper->SetInputData(enhancement);
+    Mapper->SetInputData(heightmap);
+    //Mapper->SetInputData(enhancement);
     Mapper->Update();
 
     vtkSmartPointer<vtkActor> Actor = vtkSmartPointer<vtkActor>::New();
