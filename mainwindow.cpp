@@ -1044,5 +1044,19 @@ vtkSmartPointer<vtkDoubleArray> MainWindow::ComputeNormals(vtkSmartPointer<vtkPo
 
 void MainWindow::on_action_Angular_Missing_Ratio_triggered()
 {
-    m_centerline->EliminateTorsion(m_rendermanager, m_rendermanager_right, m_colon->GetOutput(), m_filemanager, true);
+    QString filePath = QFileDialog::getOpenFileName(
+                this, tr("Open File"),"",
+                tr("Centerline File (*.vtp)"));
+    if(filePath.isEmpty()) return;
+    m_filemanager->LoadNewFile(filePath);
+    m_centerline->Object::SetInput(m_filemanager->getfile());
+    // Uniform Sampling
+    m_centerline->UniformSample(150);
+
+
+    m_centerline->ComputeAngularMissing(m_rendermanager, m_rendermanager_right, m_colon->GetOutput(), m_filemanager);
+
+    m_rendermanager->renderModel(m_centerline->GetActor());
+    QVTKWidget* left = this->findChild<QVTKWidget*>("left");
+    left->GetRenderWindow()->Render();
 }

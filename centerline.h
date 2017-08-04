@@ -65,8 +65,10 @@ public:
     void PutNormalsOnSameSide(vtkSmartPointer<vtkDoubleArray> Normals, vtkSmartPointer<vtkDoubleArray> Curvatures);
     double splineTorsion(vtkSmartPointer<vtkParametricSpline> spline, double t_u, double stepsize);
 
-    vtkSmartPointer<vtkPolyData> EliminateTorsion(RenderManager* t_rendermanager,RenderManager* t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager* t_filemanager,
-                                                  bool ToCalculateAngularMissing = false);
+    vtkSmartPointer<vtkPolyData> EliminateTorsion(RenderManager* t_rendermanager,RenderManager* t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager* t_filemanager);
+
+    void ComputeAngularMissing(RenderManager* t_rendermanager,RenderManager* t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager* t_filemanager);
+
     vtkSmartPointer<vtkPolyData> Deformation(vtkSmartPointer<vtkDoubleArray> S, vtkSmartPointer<vtkDoubleArray> Curvatures,
                                              vtkSmartPointer<vtkDoubleArray> Tangents, vtkSmartPointer<vtkDoubleArray> Normals,
                                              vtkSmartPointer<vtkPolyData> t_colon, RenderManager *t_rendermanager,

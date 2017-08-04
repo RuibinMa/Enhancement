@@ -943,8 +943,7 @@ void VisualizePoints(vtkSmartPointer<vtkPoints> points, double r, double g, doub
     t_rendermanager->renderModel(pointsActor);
 }
 
-vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager,
-                                                          bool ToCalculateAngularMissing)
+vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager)
 {
     bool use_spline = true;  // whether use spline
     double stepSize = 0.0005;
@@ -985,20 +984,8 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     }
     */
 
-    if(ToCalculateAngularMissing){
-        for(int i = 0; i < 5; i++)
-        {
-            SmoothCenterline(3, NULL);
-        }
-    }
-
 
     int MaxIter = 1; int modify = 0; // if modify==1 do one more loop to visualize the effect of the very last modification
-
-    if(ToCalculateAngularMissing){
-        MaxIter = 1; modify = 0;
-    }
-
     for(int iter = 0; iter < MaxIter + modify; iter++)
     {
         int N = model->GetNumberOfPoints();
@@ -1339,7 +1326,7 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
 
         if(iter == MaxIter - 1)
         {
-            VisualizeTNB(S, Curvatures, Tangents, Normals, Binormals, t_rendermanager);
+            //VisualizeTNB(S, Curvatures, Tangents, Normals, Binormals, t_rendermanager);
             //VisualizeSpoke(CurvaturePoints, ViolationNums, t_rendermanager);
         }
         if(modify && iter < MaxIter)
@@ -1366,7 +1353,7 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     }
 
     // visualize the ill cut circles
-
+    /*
     vtkSmartPointer<vtkPolyDataMapper> IllCutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     IllCutCirclesMapper->SetInputData(IllCutCircles);
     IllCutCirclesMapper->Update();
@@ -1374,9 +1361,9 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     IllCutCirclesActor->SetMapper(IllCutCirclesMapper);
     IllCutCirclesActor->GetProperty()->SetColor(1, 0, 0);
     t_rendermanager->renderModel(IllCutCirclesActor);
-
+    */
     // visualize the normal cut circles
-
+    /*
     vtkSmartPointer<vtkPolyDataMapper> NormalCutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     NormalCutCirclesMapper->SetInputData(NormalCutCircles);
     NormalCutCirclesMapper->Update();
@@ -1384,7 +1371,7 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     NormalCutCirclesActor->SetMapper(NormalCutCirclesMapper);
     NormalCutCirclesActor->GetProperty()->SetColor(0, 1, 1);
     t_rendermanager->renderModel(NormalCutCirclesActor);
-
+    */
 
     // visualize the violation points
     /*
@@ -1402,9 +1389,6 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     ViolationPointsActor->GetProperty()->SetColor(1,0,0);
     t_rendermanager->renderModel(ViolationPointsActor);
     */
-
-
-    if(ToCalculateAngularMissing) return NULL;
 
 
     // relax the Orthogonality
@@ -6219,4 +6203,240 @@ void Centerline::GetRegionIds(vtkPolyData *t_colon, bool *Is_Fixed, int *RegionI
         }
     }
     NumberOfRegions[0] = region;
+}
+
+void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager){
+    bool use_spline = false;  // whether use spline
+    double stepSize = 0.0005;
+
+    vtkSmartPointer<vtkParametricSpline> spline = vtkSmartPointer<vtkParametricSpline>::New();
+
+    // Arrays for tangents, normals, binormals, curvatures, torsions, length parameters, unified parameters
+    vtkSmartPointer<vtkDoubleArray> Tangents = vtkSmartPointer<vtkDoubleArray>::New(); Tangents->SetNumberOfComponents(3);
+    vtkSmartPointer<vtkDoubleArray> Normals = vtkSmartPointer<vtkDoubleArray>::New(); Normals->SetNumberOfComponents(3);
+    vtkSmartPointer<vtkDoubleArray> Binormals = vtkSmartPointer<vtkDoubleArray>::New(); Binormals->SetNumberOfComponents(3);
+    vtkSmartPointer<vtkDoubleArray> Curvatures = vtkSmartPointer<vtkDoubleArray>::New();
+    vtkSmartPointer<vtkDoubleArray> Torsions = vtkSmartPointer<vtkDoubleArray>::New();
+    vtkSmartPointer<vtkDoubleArray> S = vtkSmartPointer<vtkDoubleArray>::New();
+    vtkSmartPointer<vtkDoubleArray> U = vtkSmartPointer<vtkDoubleArray>::New();
+
+    vtkSmartPointer<vtkDoubleArray> PlaneOriginals = vtkSmartPointer<vtkDoubleArray>::New(); PlaneOriginals->SetNumberOfComponents(3);
+    vtkSmartPointer<vtkDoubleArray> PlaneNormals = vtkSmartPointer<vtkDoubleArray>::New(); PlaneNormals->SetNumberOfComponents(3);
+
+    // Smooth Centerline
+
+    for(int i = 0; i < 20; i++)
+    {
+        SmoothCenterline(3, NULL);
+    }
+
+    double cumS = 0;
+    S->InsertNextValue(cumS);
+
+    for(vtkIdType i = 1; i< model->GetNumberOfPoints(); i++)
+    {
+        double p[3], lastp[3], distance;
+        model->GetPoint(i-1, lastp);
+        model->GetPoint(i, p);
+        distance = sqrt(vtkMath::Distance2BetweenPoints(p, lastp));
+        cumS += distance;
+        S->InsertNextValue(cumS);
+        //std::cout<<i<<" distance "<<distance<<endl;
+    }
+
+    std::cout<<"Curve Length:"<<S->GetValue(model->GetNumberOfPoints()-1)<<endl;
+    // Get the normalized parameter, used in spline
+    for(vtkIdType i = 0; i< model->GetNumberOfPoints(); i++)
+    {
+        double u;
+        u = S->GetValue(i) / cumS;
+        U->InsertNextValue(u);
+    }
+    // Get the tangent vector on each point
+    for(vtkIdType i = 0; i< model->GetNumberOfPoints(); i++)
+    {
+        double tangent[3];
+        if(use_spline)
+        {
+            splineTangent(tangent, spline, U->GetValue(i), stepSize);
+        }
+        else
+        {
+            GetVerticalPlane(i, tangent);
+        }
+        Tangents->InsertNextTuple(tangent);
+    }
+    // Get the normal vector and curvature on each point
+    for(vtkIdType i = 0; i< model->GetNumberOfPoints(); i++)
+    {
+        double normal[3];
+        double curvature;
+        if(use_spline)
+        {
+            splineNormal(normal, spline, U->GetValue(i), stepSize, curvature);
+            curvature /= cumS;
+        }
+        else
+        {
+            double tangent[3];
+            Tangents->GetTuple(i, tangent);
+            if(i == 0)
+            {
+                double nexttangent[3];
+                Tangents->GetTuple(i + 1, nexttangent);
+                double snext, s, delta_s;
+                s = S->GetValue(i);
+                snext = S->GetValue(i+1);
+                delta_s = snext - s;
+                vtkMath::Subtract(nexttangent, tangent, normal);
+                curvature = vtkMath::Norm(normal) / delta_s;
+            }
+            else if(i == model->GetNumberOfPoints()-1)
+            {
+                double lasttangent[3];
+                Tangents->GetTuple(i - 1, lasttangent);
+                double s, slast, delta_s;
+                s = S->GetValue(i);
+                slast = S->GetValue(i - 1);
+                delta_s = s - slast;
+                vtkMath::Subtract(tangent, lasttangent, normal);
+                curvature = vtkMath::Norm(normal) / delta_s;
+            }
+            else
+            {
+                double lasttangent[3], nexttangent[3], normal1[3], normal2[3], tmp[3];
+                Tangents->GetTuple(i + 1, nexttangent);
+                Tangents->GetTuple(i - 1, lasttangent);
+                double snext, slast, delta_s;
+                snext = S->GetValue(i + 1);
+                slast = S->GetValue(i - 1);
+                delta_s = snext - slast;
+
+                vtkMath::Subtract(nexttangent, tangent, normal1);
+                //vtkMath::Normalize(normal1);
+                vtkMath::Subtract(tangent, lasttangent, normal2);
+                //vtkMath::Normalize(normal2);
+                vtkMath::Add(normal1, normal2, normal);
+                vtkMath::Subtract(nexttangent, lasttangent, tmp);
+                curvature = vtkMath::Norm(tmp) / delta_s;
+            }
+            vtkMath::Normalize(normal);
+        }
+        Normals->InsertNextTuple(normal);
+        Curvatures->InsertNextValue(curvature);
+    }
+    // Get the binormal on each point
+    for(vtkIdType i = 0; i<model->GetNumberOfPoints(); i++)
+    {
+        double tangent[3], normal[3], binormal[3];
+        Tangents->GetTuple(i, tangent);
+        Normals->GetTuple(i, normal);
+        vtkMath::Cross(tangent, normal, binormal);
+        vtkMath::Normalize(binormal);
+        Binormals->InsertNextTuple(binormal);
+    }
+    // Get the torsion on each point
+    for(vtkIdType i = 0; i<model->GetNumberOfPoints(); i++)
+    {
+        double torsion;
+        if(use_spline)
+        {
+            torsion = splineTorsion(spline, U->GetValue(i), stepSize) / cumS;
+        }
+        else
+        {
+            double binormal[3], normal[3];
+            Binormals->GetTuple(i, binormal);
+            Normals->GetTuple(i, normal);
+            double s;
+            s = S->GetValue(i);
+            if(i == 0)
+            {
+                double nextbinormal[3], dbinormal[3];
+                Binormals->GetTuple(i + 1, nextbinormal);
+                double snext = S->GetValue(i + 1);
+                vtkMath::Subtract(nextbinormal, binormal, dbinormal);
+                torsion = - 1/(snext - s) * vtkMath::Dot(dbinormal, normal);
+            }
+            else if(i == model->GetNumberOfPoints()-1)
+            {
+                double lastbinormal[3], dbinormal[3];
+                Binormals->GetTuple(i - 1, lastbinormal);
+                double slast = S->GetValue(i - 1);
+                vtkMath::Subtract(binormal, lastbinormal, dbinormal);
+                torsion = - 1/(s - slast) * vtkMath::Dot(dbinormal, normal);
+            }
+            else
+            {
+                double nextbinormal[3], lastbinormal[3], dbinormal[3];
+                Binormals->GetTuple(i + 1, nextbinormal);
+                Binormals->GetTuple(i - 1, lastbinormal);
+                double snext, slast;
+                snext = S->GetValue(i + 1);
+                slast = S->GetValue(i - 1);
+                vtkMath::Subtract(nextbinormal, lastbinormal, dbinormal);
+                torsion = -1/(snext - slast) * vtkMath::Dot(dbinormal, normal);
+            }
+        }
+        Torsions->InsertNextValue(torsion);
+        //std::cout<<"torsion: "<<i<<" "<<torsion<<endl;
+    }
+
+
+    //VisualizeTNB(S, Curvatures, Tangents, Normals, Binormals, t_rendermanager);
+    // cut circle
+    vtkSmartPointer<vtkPolyData> CutCircles = vtkSmartPointer<vtkPolyData>::New();
+    vtkSmartPointer<vtkAppendPolyData> appendFilter = vtkSmartPointer<vtkAppendPolyData>::New();
+    vtkSmartPointer<vtkCleanPolyData> cleanFilter = vtkSmartPointer<vtkCleanPolyData>::New();
+    cleanFilter->SetInputConnection(appendFilter->GetOutputPort());
+
+    vtkSmartPointer<vtkCutter> cutter = vtkSmartPointer<vtkCutter>::New();
+    cutter->SetInputData(t_colon);
+    vtkSmartPointer<vtkPlane> plane = vtkSmartPointer<vtkPlane>::New();
+    vtkSmartPointer<vtkPolyData> cutline = vtkSmartPointer<vtkPolyData>::New();
+
+    vtkSmartPointer<vtkPolyDataConnectivityFilter> connectivityFilter = vtkSmartPointer<vtkPolyDataConnectivityFilter>::New();
+    connectivityFilter->SetInputConnection(cutter->GetOutputPort());
+    connectivityFilter->SetExtractionModeToClosestPointRegion();
+
+    // calculate the cut circles and curvature points
+
+    for(vtkIdType i=0; i<model->GetNumberOfPoints(); i++)
+    {
+        double centerPoint[3];
+        model->GetPoint(i, centerPoint);
+        connectivityFilter->SetClosestPoint(centerPoint);
+
+        plane->SetOrigin(model->GetPoint(i));
+        plane->SetNormal(Tangents->GetTuple(i));
+
+        PlaneOriginals->InsertNextTuple(model->GetPoint(i)); // record
+        PlaneNormals->InsertNextTuple(Tangents->GetTuple(i));
+
+        cutter->SetCutFunction(plane);
+        cutter->Update();
+        connectivityFilter->Update();
+
+        cutline = connectivityFilter->GetOutput();
+
+        appendFilter->RemoveAllInputs();
+        appendFilter->AddInputData(CutCircles);
+        appendFilter->AddInputData(cutline);
+        appendFilter->Update();
+        cleanFilter->Update();
+        CutCircles->DeepCopy(cleanFilter->GetOutput());
+
+        std::cout<<i<<" "<<"cutline points:"<<cutline->GetNumberOfPoints()<<endl;
+    }
+
+
+    vtkSmartPointer<vtkPolyDataMapper> CutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    CutCirclesMapper->SetInputData(CutCircles);
+    CutCirclesMapper->Update();
+    vtkSmartPointer<vtkActor> CutCirclesActor = vtkSmartPointer<vtkActor>::New();
+    CutCirclesActor->SetMapper(CutCirclesMapper);
+    CutCirclesActor->GetProperty()->SetColor(0, 1, 1);
+
+    t_rendermanager->renderModel(CutCirclesActor);
+
 }
