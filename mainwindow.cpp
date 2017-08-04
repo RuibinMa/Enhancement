@@ -1041,3 +1041,8 @@ vtkSmartPointer<vtkDoubleArray> MainWindow::ComputeNormals(vtkSmartPointer<vtkPo
     } // while(1)
 }
 */
+
+void MainWindow::on_action_Angular_Missing_Ratio_triggered()
+{
+    m_centerline->EliminateTorsion(m_rendermanager, m_rendermanager_right, m_colon->GetOutput(), m_filemanager, true);
+}

@@ -128,6 +128,8 @@ private slots:
 
     void on_action_Compute_Height_triggered();
 
+    void on_action_Angular_Missing_Ratio_triggered();
+
 private:
     Ui::MainWindow *ui;
     FileManager * m_filemanager;

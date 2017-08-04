@@ -110,6 +110,7 @@
     </property>
     <addaction name="actionLoad_Centerline"/>
     <addaction name="action_Deform_Colon"/>
+    <addaction name="action_Angular_Missing_Ratio"/>
    </widget>
    <widget class="QMenu" name="menu_Depth_Map">
     <property name="title">
@@ -158,6 +159,11 @@
   <action name="action_Compute_Height">
    <property name="text">
     <string>&amp;Compute Height</string>
+   </property>
+  </action>
+  <action name="action_Angular_Missing_Ratio">
+   <property name="text">
+    <string>&amp;Angular Missing Ratio</string>
    </property>
   </action>
  </widget>

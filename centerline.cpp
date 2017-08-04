@@ -943,7 +943,8 @@ void VisualizePoints(vtkSmartPointer<vtkPoints> points, double r, double g, doub
     t_rendermanager->renderModel(pointsActor);
 }
 
-vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager)
+vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager,
+                                                          bool ToCalculateAngularMissing)
 {
     bool use_spline = true;  // whether use spline
     double stepSize = 0.0005;
@@ -984,8 +985,20 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     }
     */
 
+    if(ToCalculateAngularMissing){
+        for(int i = 0; i < 5; i++)
+        {
+            SmoothCenterline(3, NULL);
+        }
+    }
+
 
     int MaxIter = 1; int modify = 0; // if modify==1 do one more loop to visualize the effect of the very last modification
+
+    if(ToCalculateAngularMissing){
+        MaxIter = 1; modify = 0;
+    }
+
     for(int iter = 0; iter < MaxIter + modify; iter++)
     {
         int N = model->GetNumberOfPoints();
@@ -1326,7 +1339,7 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
 
         if(iter == MaxIter - 1)
         {
-            //VisualizeTNB(S, Curvatures, Tangents, Normals, Binormals, t_rendermanager);
+            VisualizeTNB(S, Curvatures, Tangents, Normals, Binormals, t_rendermanager);
             //VisualizeSpoke(CurvaturePoints, ViolationNums, t_rendermanager);
         }
         if(modify && iter < MaxIter)
@@ -1353,7 +1366,7 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     }
 
     // visualize the ill cut circles
-    /*
+
     vtkSmartPointer<vtkPolyDataMapper> IllCutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     IllCutCirclesMapper->SetInputData(IllCutCircles);
     IllCutCirclesMapper->Update();
@@ -1361,9 +1374,9 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     IllCutCirclesActor->SetMapper(IllCutCirclesMapper);
     IllCutCirclesActor->GetProperty()->SetColor(1, 0, 0);
     t_rendermanager->renderModel(IllCutCirclesActor);
-    */
+
     // visualize the normal cut circles
-    /*
+
     vtkSmartPointer<vtkPolyDataMapper> NormalCutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
     NormalCutCirclesMapper->SetInputData(NormalCutCircles);
     NormalCutCirclesMapper->Update();
@@ -1371,7 +1384,7 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     NormalCutCirclesActor->SetMapper(NormalCutCirclesMapper);
     NormalCutCirclesActor->GetProperty()->SetColor(0, 1, 1);
     t_rendermanager->renderModel(NormalCutCirclesActor);
-    */
+
 
     // visualize the violation points
     /*
@@ -1389,6 +1402,9 @@ vtkSmartPointer<vtkPolyData> Centerline::EliminateTorsion(RenderManager* t_rende
     ViolationPointsActor->GetProperty()->SetColor(1,0,0);
     t_rendermanager->renderModel(ViolationPointsActor);
     */
+
+
+    if(ToCalculateAngularMissing) return NULL;
 
 
     // relax the Orthogonality
