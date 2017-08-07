@@ -1602,7 +1602,7 @@ void CreateCircle( const double& z, const double& radius, const int& resolution,
   vertexFilter->Update();
   polyData->DeepCopy(vertexFilter->GetOutput());
 }
-vtkSmartPointer<vtkPolyData> Centerline::ReorderContour(vtkSmartPointer<vtkPolyData> cutCircle)
+vtkSmartPointer<vtkPolyData> Centerline::ReorderContour(vtkSmartPointer<vtkPolyData> cutCircle, bool CreateCircle)
 {
     int * Ids = (int *)malloc(cutCircle->GetNumberOfPoints()*sizeof(int));
 
@@ -1621,10 +1621,11 @@ vtkSmartPointer<vtkPolyData> Centerline::ReorderContour(vtkSmartPointer<vtkPolyD
 
     }
 
+    vtkIdType head = INFINITY, tail = INFINITY;
     if(cutCircle->GetNumberOfCells() < cutCircle->GetNumberOfPoints())
     {
         int * connected = (int*)malloc(cutCircle->GetNumberOfPoints() * sizeof(int));
-        vtkIdType head, tail;
+
         for(vtkIdType i=0; i < cutCircle->GetNumberOfPoints(); i++)
         {
             connected[i] = 0;
@@ -1656,25 +1657,34 @@ vtkSmartPointer<vtkPolyData> Centerline::ReorderContour(vtkSmartPointer<vtkPolyD
     vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
     vtkSmartPointer<vtkCellArray> lines = vtkSmartPointer<vtkCellArray>::New();
 
-    vtkIdType lastId = 0;
+    vtkIdType lastId;
+    if(cutCircle->GetNumberOfPoints() > cutCircle->GetNumberOfCells()) lastId = tail;
+    else lastId = 0;
+
     for(vtkIdType i=0; i<cutCircle->GetNumberOfPoints()-1; i++)
     {
         points->InsertNextPoint(cutCircle->GetPoint(lastId));
 
         //std::cout<<i<<"   "<<lastId<<"->";
-        lastId = Ids[lastId];
-        //std::cout<<lastId<<endl;
 
         vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
+
         line->GetPointIds()->SetId(0, i);
         line->GetPointIds()->SetId(1, i+1);
         lines->InsertNextCell(line);
+
+        lastId = Ids[lastId];
+        //std::cout<<lastId<<endl;
     }
     points->InsertNextPoint(cutCircle->GetPoint(lastId));
+
+    if(CreateCircle){
     vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
+
     line->GetPointIds()->SetId(0, cutCircle->GetNumberOfPoints()-1);
     line->GetPointIds()->SetId(1, 0);
     lines->InsertNextCell(line);
+    }
 
     vtkSmartPointer<vtkPolyData> ReorderedCircle = vtkSmartPointer<vtkPolyData>::New();
 
@@ -6401,6 +6411,11 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
     // calculate the cut circles and curvature points
 
+    double TotalAngularMissing = 0;
+    double AngularMissingRatio = 0;
+    double MaxAngularMissing = 0;
+    vtkSmartPointer<vtkPolyData> MaxAngularMissingCircle = vtkSmartPointer<vtkPolyData>::New();
+
     for(vtkIdType i=0; i<model->GetNumberOfPoints(); i++)
     {
         double centerPoint[3];
@@ -6418,6 +6433,7 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
         connectivityFilter->Update();
 
         cutline = connectivityFilter->GetOutput();
+        cutline->DeepCopy(ReorderContour(cutline, false));
 
         appendFilter->RemoveAllInputs();
         appendFilter->AddInputData(CutCircles);
@@ -6426,8 +6442,101 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
         cleanFilter->Update();
         CutCircles->DeepCopy(cleanFilter->GetOutput());
 
-        std::cout<<i<<" "<<"cutline points:"<<cutline->GetNumberOfPoints()<<endl;
+        std::cout<<i<<" "<<"cutline points:"<<cutline->GetNumberOfPoints()<<" lines: "<<cutline->GetNumberOfLines()<<endl;
+
+        if(cutline->GetNumberOfPoints() > cutline->GetNumberOfLines()){
+            double first[3], last[3], cp[3], vfirst[3], vlast[3];
+            cutline->GetPoint(0, first);
+            cutline->GetPoint(cutline->GetNumberOfPoints()-1, last);
+
+            model->GetPoint(i, cp);
+            vtkMath::Subtract(first, cp, vfirst);
+            vtkMath::Subtract(last, cp, vlast);
+
+
+            double mid[3];
+            mid[0] = (first[0] + last[0]) / 2;
+            mid[1] = (first[1] + last[1]) / 2;
+            mid[2] = (first[2] + last[2]) / 2;
+            double vm[3];
+            vtkMath::Subtract(mid, cp, vm);
+            vtkMath::Normalize(vm);
+            double vertical[3], vb[3];
+            PlaneNormals->GetTuple(i, vertical);
+            vtkMath::Cross(vertical, vm, vb);
+
+            double angle1 = INFINITY;
+            for(int j = 0; j < cutline->GetNumberOfPoints()/2; j++){
+                double v[3], p[3];
+                cutline->GetPoint(j, p);
+                vtkMath::Subtract(p, cp, v);
+
+                double angle = vtkMath::AngleBetweenVectors(v, vm) * 180 / 3.1415926;
+
+                if(vtkMath::Dot(vfirst, vb) * vtkMath::Dot(v, vb) < 0 && angle < 90)
+                {
+                    angle = -angle;
+                    std::cout<<angle<<"!!!"<<endl;
+                }
+
+                angle1 = angle < angle1 ? angle : angle1;
+            }
+
+            double angle2 = INFINITY;
+            for(int j = cutline->GetNumberOfPoints()/2; j < cutline->GetNumberOfPoints(); j++){
+                double v[3], p[3];
+                cutline->GetPoint(j, p);
+                vtkMath::Subtract(p, cp, v);
+
+                double angle = vtkMath::AngleBetweenVectors(v, vm) * 180 / 3.1415926;
+
+                if(vtkMath::Dot(vlast, vb) * vtkMath::Dot(v, vb) < 0 && angle < 90)
+                {
+                    angle = -angle;
+                    std::cout<<angle<<"!!!"<<endl;
+                }
+
+                angle2 = angle < angle2 ? angle : angle2;
+            }
+
+            double angularmissing = (angle1 + angle2);
+
+
+            //double angularmissing = vtkMath::AngleBetweenVectors(vfirst, vlast) * 180 / 3.1415926;
+
+            std::cout<<"angular missing: "<<angularmissing<<endl;
+            //MaxAngularMissing = angularmissing > MaxAngularMissing ? angularmissing : MaxAngularMissing;
+            if(angularmissing > MaxAngularMissing){
+                MaxAngularMissing = angularmissing;
+                MaxAngularMissingCircle->DeepCopy(cutline);
+            }
+            TotalAngularMissing += angularmissing;
+        }
+        /*
+        if(cutline->GetNumberOfPoints() > cutline->GetNumberOfLines()){
+            double normal[3], binormal[3], cp[3];
+            Normals->GetTuple(i, normal);
+            Binormals->GetTuple(i, binormal);
+            model->GetPoint(i, cp);
+            for(int j = 0; j < cutline->GetNumberOfPoints(); j++){
+                // get coordinates in N-B
+                double v[3], p[3];
+                cutline->GetPoint(j, p);
+                vtkMath::Subtract(p, cp, v);
+                vtkMath::Normalize(v);
+                double x = vtkMath::Dot(v, normal);
+                double y = vtkMath::Dot(v, binormal);
+
+
+            }
+
+        }
+        */
     }
+
+    std::cout<<endl<<"Max Angular Missing = "<<MaxAngularMissing<<endl<<endl;
+    AngularMissingRatio = TotalAngularMissing / model->GetNumberOfPoints() / 360;
+    std::cout<<"Angular Missing Ratio = "<<AngularMissingRatio<<endl;
 
 
     vtkSmartPointer<vtkPolyDataMapper> CutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
@@ -6439,4 +6548,12 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
     t_rendermanager->renderModel(CutCirclesActor);
 
+    vtkSmartPointer<vtkPolyDataMapper> MaxCutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+    MaxCutCirclesMapper->SetInputData(MaxAngularMissingCircle);
+    MaxCutCirclesMapper->Update();
+    vtkSmartPointer<vtkActor> MaxCutCirclesActor = vtkSmartPointer<vtkActor>::New();
+    MaxCutCirclesActor->SetMapper(MaxCutCirclesMapper);
+    MaxCutCirclesActor->GetProperty()->SetColor(1, 0, 0);
+
+    t_rendermanager->renderModel(MaxCutCirclesActor);
 }

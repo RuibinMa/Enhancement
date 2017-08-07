@@ -106,7 +106,7 @@ public:
     void VisualizeOriginalCurve(RenderManager* t_rendermanager);
 
 
-    vtkSmartPointer<vtkPolyData> ReorderContour(vtkSmartPointer<vtkPolyData> cutCircle);
+    vtkSmartPointer<vtkPolyData> ReorderContour(vtkSmartPointer<vtkPolyData> cutCircle, bool CreateCircle = true);
     vtkSmartPointer<vtkPolyData> FormPlate(vtkSmartPointer<vtkPolyData> cutCircle);
     double SinglePath(double **costVrt, double **costHrz,int sx, int sy, int tx, int ty, int *steps);
     void ContoursToSurface(RenderManager* t_rendermanager, FileManager* t_filemanager);
