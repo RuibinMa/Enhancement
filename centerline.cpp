@@ -1678,7 +1678,7 @@ vtkSmartPointer<vtkPolyData> Centerline::ReorderContour(vtkSmartPointer<vtkPolyD
     }
     points->InsertNextPoint(cutCircle->GetPoint(lastId));
 
-    if(CreateCircle){
+    if(CreateCircle || cutCircle->GetNumberOfPoints() == cutCircle->GetNumberOfCells()){
     vtkSmartPointer<vtkLine> line = vtkSmartPointer<vtkLine>::New();
 
     line->GetPointIds()->SetId(0, cutCircle->GetNumberOfPoints()-1);
