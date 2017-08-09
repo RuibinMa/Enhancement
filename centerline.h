@@ -44,6 +44,8 @@
 #include <vtkIntersectionPolyDataFilter.h>
 #include <vtkLandmarkTransform.h>
 
+#define PI 3.1415926
+
 class Centerline : public Object
 {
 private:

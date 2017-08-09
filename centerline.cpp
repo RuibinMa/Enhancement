@@ -6414,6 +6414,10 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
     double TotalAngularMissing = 0;
     double AngularMissingRatio = 0;
     double MaxAngularMissing = 0;
+    double AreaMissingRatioNumerator = 0;
+    double AreaMissingRatioDenominator = 0;
+    double AreaMissingRatio = 0;
+
     vtkSmartPointer<vtkPolyData> MaxAngularMissingCircle = vtkSmartPointer<vtkPolyData>::New();
 
     for(vtkIdType i=0; i<model->GetNumberOfPoints(); i++)
@@ -6442,14 +6446,30 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
         cleanFilter->Update();
         CutCircles->DeepCopy(cleanFilter->GetOutput());
 
-        std::cout<<i<<" "<<"cutline points:"<<cutline->GetNumberOfPoints()<<" lines: "<<cutline->GetNumberOfLines()<<endl;
+        std::cout<<i<<" "<<"cutline points:"<<cutline->GetNumberOfPoints()<<" lines: "<<cutline->GetNumberOfLines();
+
+
+
+        double aveR = 0;
+        double cp[3];
+        model->GetPoint(i, cp);
+        for(int j = 0; j < cutline->GetNumberOfPoints(); j++){
+            double v[3], p[3];
+            cutline->GetPoint(j, p);
+            vtkMath::Subtract(p, cp, v);
+
+            aveR += log(vtkMath::Norm(v));
+        }
+        aveR = exp(aveR / cutline->GetNumberOfPoints());
+        std::cout<<"  aveR = "<<aveR<<endl;
+        AreaMissingRatioDenominator += aveR * 360;
 
         if(cutline->GetNumberOfPoints() > cutline->GetNumberOfLines()){
-            double first[3], last[3], cp[3], vfirst[3], vlast[3];
+            double first[3], last[3], vfirst[3], vlast[3];
             cutline->GetPoint(0, first);
             cutline->GetPoint(cutline->GetNumberOfPoints()-1, last);
 
-            model->GetPoint(i, cp);
+
             vtkMath::Subtract(first, cp, vfirst);
             vtkMath::Subtract(last, cp, vlast);
 
@@ -6501,6 +6521,8 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
             double angularmissing = (angle1 + angle2);
 
+            AreaMissingRatioNumerator += angularmissing * aveR;
+
 
             //double angularmissing = vtkMath::AngleBetweenVectors(vfirst, vlast) * 180 / 3.1415926;
 
@@ -6512,31 +6534,13 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
             }
             TotalAngularMissing += angularmissing;
         }
-        /*
-        if(cutline->GetNumberOfPoints() > cutline->GetNumberOfLines()){
-            double normal[3], binormal[3], cp[3];
-            Normals->GetTuple(i, normal);
-            Binormals->GetTuple(i, binormal);
-            model->GetPoint(i, cp);
-            for(int j = 0; j < cutline->GetNumberOfPoints(); j++){
-                // get coordinates in N-B
-                double v[3], p[3];
-                cutline->GetPoint(j, p);
-                vtkMath::Subtract(p, cp, v);
-                vtkMath::Normalize(v);
-                double x = vtkMath::Dot(v, normal);
-                double y = vtkMath::Dot(v, binormal);
-
-
-            }
-
-        }
-        */
     }
 
     std::cout<<endl<<"Max Angular Missing = "<<MaxAngularMissing<<endl<<endl;
     AngularMissingRatio = TotalAngularMissing / model->GetNumberOfPoints() / 360;
-    std::cout<<"Angular Missing Ratio = "<<AngularMissingRatio<<endl;
+    std::cout<<"Angular Missing Ratio = "<<AngularMissingRatio<<endl<<endl;
+    AreaMissingRatio = AreaMissingRatioNumerator / AreaMissingRatioDenominator;
+    std::cout<<"Area Missing Ratio = "<<AreaMissingRatio<<endl<<endl;
 
 
     vtkSmartPointer<vtkPolyDataMapper> CutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
