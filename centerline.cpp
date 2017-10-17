@@ -6434,10 +6434,11 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
         cutter->SetCutFunction(plane);
         cutter->Update();
-        connectivityFilter->Update();
 
-        cutline = connectivityFilter->GetOutput();
-        cutline->DeepCopy(ReorderContour(cutline, false));
+        //connectivityFilter->Update();
+        //cutline = connectivityFilter->GetOutput();
+        //cutline->DeepCopy(ReorderContour(cutline, false));
+        cutline = cutter->GetOutput();
 
         appendFilter->RemoveAllInputs();
         appendFilter->AddInputData(CutCircles);
@@ -6452,6 +6453,11 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
         double aveR = 0;
         double cp[3];
+        double normal[3];
+        Normals->GetTuple(i, normal);
+        double binormal[3];
+        Binormals->GetTuple(i, binormal);
+
         model->GetPoint(i, cp);
         for(int j = 0; j < cutline->GetNumberOfPoints(); j++){
             double v[3], p[3];
@@ -6464,63 +6470,76 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
         std::cout<<"  aveR = "<<aveR<<endl;
         AreaMissingRatioDenominator += aveR * 360;
 
+        std::vector<std::pair<double, double>> anglePairs;
         if(cutline->GetNumberOfPoints() > cutline->GetNumberOfLines()){
-            double first[3], last[3], vfirst[3], vlast[3];
-            cutline->GetPoint(0, first);
-            cutline->GetPoint(cutline->GetNumberOfPoints()-1, last);
 
+            double angularmissing = 0;
 
-            vtkMath::Subtract(first, cp, vfirst);
-            vtkMath::Subtract(last, cp, vlast);
+            //
+            for(int c = 0; c < cutline->GetNumberOfCells(); c++){
+                vtkSmartPointer<vtkIdList> pointids = vtkSmartPointer<vtkIdList>::New();
+                cutline->GetCellPoints(c, pointids);
+                assert(pointids->GetNumberOfIds() == 2);
 
-
-            double mid[3];
-            mid[0] = (first[0] + last[0]) / 2;
-            mid[1] = (first[1] + last[1]) / 2;
-            mid[2] = (first[2] + last[2]) / 2;
-            double vm[3];
-            vtkMath::Subtract(mid, cp, vm);
-            vtkMath::Normalize(vm);
-            double vertical[3], vb[3];
-            PlaneNormals->GetTuple(i, vertical);
-            vtkMath::Cross(vertical, vm, vb);
-
-            double angle1 = INFINITY;
-            for(int j = 0; j < cutline->GetNumberOfPoints()/2; j++){
-                double v[3], p[3];
-                cutline->GetPoint(j, p);
-                vtkMath::Subtract(p, cp, v);
-
-                double angle = vtkMath::AngleBetweenVectors(v, vm) * 180 / 3.1415926;
-
-                if(vtkMath::Dot(vfirst, vb) * vtkMath::Dot(v, vb) < 0 && angle < 90)
-                {
-                    angle = -angle;
-                    std::cout<<angle<<"!!!"<<endl;
+                double p0[3], p1[3], v0[3], v1[3];
+                cutline->GetPoint(pointids->GetId(0), p0);
+                cutline->GetPoint(pointids->GetId(1), p1);
+                if(i == 60){
+                    std::cout<<pointids->GetId(0)<<" - "<<pointids->GetId(1)<<endl;
                 }
+                vtkMath::Subtract(p0, cp, v0);
+                vtkMath::Subtract(p1, cp, v1);
+                vtkMath::Normalize(v0);
+                vtkMath::Normalize(v1);
+                // take the angle of p0
+                double x0 = vtkMath::Dot(v0, normal);
+                double y0 = vtkMath::Dot(v0, binormal);
+                double angle0 = 0;
+                if(y0 >=0) angle0 = acos(x0);
+                else angle0 = 2 * PI - acos(x0);
+                // take the angle of p1
+                double x1 = vtkMath::Dot(v1, normal);
+                double y1 = vtkMath::Dot(v1, binormal);
+                double angle1 = 0;
+                if(y1 >=0) angle1 = acos(x1);
+                else angle1 = 2 * PI - acos(x1);
 
-                angle1 = angle < angle1 ? angle : angle1;
+                if(angle0 > angle1) std::swap(angle0, angle1);
+                assert(angle0 <= angle1);
+                assert(angle0 <= 2*PI && angle1 <= 2*PI);
+
+                if(angle0 >=0 && angle0 < PI * 0.5 && angle1 >= PI * 1.5 && angle1 <= 2 * PI){
+                    anglePairs.push_back(std::make_pair(0, angle0));
+                    anglePairs.push_back(std::make_pair(angle1, 2*PI));
+                }
+                else
+                    anglePairs.push_back(std::make_pair(angle0, angle1));
             }
 
-            double angle2 = INFINITY;
-            for(int j = cutline->GetNumberOfPoints()/2; j < cutline->GetNumberOfPoints(); j++){
-                double v[3], p[3];
-                cutline->GetPoint(j, p);
-                vtkMath::Subtract(p, cp, v);
+            std::sort(anglePairs.begin(), anglePairs.end());
 
-                double angle = vtkMath::AngleBetweenVectors(v, vm) * 180 / 3.1415926;
-
-                if(vtkMath::Dot(vlast, vb) * vtkMath::Dot(v, vb) < 0 && angle < 90)
-                {
-                    angle = -angle;
-                    std::cout<<angle<<"!!!"<<endl;
-                }
-
-                angle2 = angle < angle2 ? angle : angle2;
+            if(i == 60){
+                std::cout<<acos(-1)<<endl;
+            for(auto item : anglePairs){
+                std::cout<<item.first<<" "<<item.second<<endl;
             }
+            }
+            std::pair<double, double> prev(0.0, 0.0);
+            for(int c = 0; c < anglePairs.size(); c++){
+                std::pair<double, double> cur(anglePairs[c]);
+                assert(cur.first >= prev.first);
+                assert(cur.first <= cur.second);
+                if(cur.second <= prev.second) continue;
+                if(cur.first <= prev.second){
+                    prev.second = cur.second;
+                    continue;
+                }
+                angularmissing += cur.first - prev.second;
 
-            double angularmissing = (angle1 + angle2);
-
+                prev = cur;
+            }
+            angularmissing += 2*PI - prev.second;
+            angularmissing = angularmissing / PI * 180;
             AreaMissingRatioNumerator += angularmissing * aveR;
 
 
