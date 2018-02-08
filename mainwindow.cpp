@@ -225,7 +225,7 @@ void MainWindow::on_actionLoad_Centerline_triggered()
     m_filemanager->LoadNewFile(filePath);
     m_centerline->Object::SetInput(m_filemanager->getfile());
     // Uniform Sampling
-    m_centerline->UniformSample(400);
+    // m_centerline->UniformSample(400);
     // Gaussian Smoothing
     //m_centerline->SmoothCenterline(3);
     //m_filemanager->SaveFile(m_centerline->GetOutput(), "SmoothedCenterline.vtp");
@@ -1059,4 +1059,24 @@ void MainWindow::on_action_Angular_Missing_Ratio_triggered()
     m_rendermanager->renderModel(m_centerline->GetActor());
     QVTKWidget* left = this->findChild<QVTKWidget*>("left");
     left->GetRenderWindow()->Render();
+}
+
+void MainWindow::on_action_Maunally_Create_Centerline_triggered()
+{
+    int resolution = 200;
+    vtkSmartPointer<vtkParametricSpline> spline = vtkSmartPointer<vtkParametricSpline>::New();
+    vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
+    points->InsertNextPoint(23.484, 13.856, 49.559);
+    points->InsertNextPoint(8.857, 3.575, 24.353);
+    points->InsertNextPoint(-3.596, -5.658, 2.445);
+    spline->SetPoints(points);
+
+    vtkSmartPointer<vtkParametricFunctionSource> functionSource = vtkSmartPointer<vtkParametricFunctionSource>::New();
+    functionSource->SetParametricFunction(spline);
+    functionSource->Update();
+    functionSource->SetUResolution(resolution);
+    functionSource->Update();
+
+    m_filemanager->SaveFile(functionSource->GetOutput(), "ManualCenterline.vtp");
+    std::cout<<"ManualCenterline.vtp created ("<<functionSource->GetOutput()->GetNumberOfPoints()<<" points)"<<std::endl;
 }

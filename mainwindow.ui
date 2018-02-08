@@ -111,6 +111,7 @@
     <addaction name="actionLoad_Centerline"/>
     <addaction name="action_Deform_Colon"/>
     <addaction name="action_Angular_Missing_Ratio"/>
+    <addaction name="action_Maunally_Create_Centerline"/>
    </widget>
    <widget class="QMenu" name="menu_Depth_Map">
     <property name="title">
@@ -164,6 +165,11 @@
   <action name="action_Angular_Missing_Ratio">
    <property name="text">
     <string>&amp;Angular Missing Ratio</string>
+   </property>
+  </action>
+  <action name="action_Maunally_Create_Centerline">
+   <property name="text">
+    <string>&amp;Maunally Create Centerline</string>
    </property>
   </action>
  </widget>

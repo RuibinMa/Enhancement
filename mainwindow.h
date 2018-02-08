@@ -130,6 +130,8 @@ private slots:
 
     void on_action_Angular_Missing_Ratio_triggered();
 
+    void on_action_Maunally_Create_Centerline_triggered();
+
 private:
     Ui::MainWindow *ui;
     FileManager * m_filemanager;
