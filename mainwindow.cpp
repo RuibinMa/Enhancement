@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <unistd.h>
+#include <cstring>
+#include <string>
 
 namespace
 {
@@ -932,7 +934,7 @@ void MainWindow::on_action_Compute_Height_triggered()
 
 
 
-    unsigned char red[3] = {255,0,0};
+    unsigned char red[3] = {0,255,0};
     unsigned char blue[3] = {0,0,255};
     vtkSmartPointer<vtkUnsignedCharArray> colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
     colors->SetNumberOfComponents(3);
@@ -1044,17 +1046,50 @@ vtkSmartPointer<vtkDoubleArray> MainWindow::ComputeNormals(vtkSmartPointer<vtkPo
 
 void MainWindow::on_action_Angular_Missing_Ratio_triggered()
 {
+    m_centerline->GetOutput()->Reset();
     QString filePath = QFileDialog::getOpenFileName(
                 this, tr("Open File"),"",
                 tr("Centerline File (*.vtp)"));
+    std::cout<<filePath.toStdString().c_str()<<endl;
+    const char * path = filePath.toStdString().c_str();
+    int len = strlen(path);
+    std::cout<<len<<endl;
+    int start = -1, end = -1;
+    for(int i = len-1; i >= 0; i--){
+        if(path[i] >= '0' && path[i] <= '9'){
+            if(end < 0){
+                end = i;
+            }
+            else{
+                // do nothing
+            }
+        }
+        else{
+            if(end < 0){
+                // do nothing
+            }
+            else{
+                start = i + 1;
+                break;
+            }
+        }
+    }
+    std::string casename;
+    for(int i = start; i <= end; i++){
+        casename += path[i];
+    }
+    std::cout<<casename<<endl;
+
+
+
     if(filePath.isEmpty()) return;
     m_filemanager->LoadNewFile(filePath);
     m_centerline->Object::SetInput(m_filemanager->getfile());
     // Uniform Sampling
-    m_centerline->UniformSample(150);
+    m_centerline->UniformSample(100);
 
 
-    m_centerline->ComputeAngularMissing(m_rendermanager, m_rendermanager_right, m_colon->GetOutput(), m_filemanager);
+    m_centerline->ComputeAngularMissing(m_rendermanager, m_rendermanager_right, m_colon->GetOutput(), m_filemanager, casename);
 
     m_rendermanager->renderModel(m_centerline->GetActor());
     QVTKWidget* left = this->findChild<QVTKWidget*>("left");
@@ -1066,9 +1101,9 @@ void MainWindow::on_action_Maunally_Create_Centerline_triggered()
     int resolution = 200;
     vtkSmartPointer<vtkParametricSpline> spline = vtkSmartPointer<vtkParametricSpline>::New();
     vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
-    points->InsertNextPoint(23.484, 13.856, 49.559);
-    points->InsertNextPoint(8.857, 3.575, 24.353);
-    points->InsertNextPoint(-3.596, -5.658, 2.445);
+    points->InsertNextPoint(-8.290, 15.469, 44.268);
+    points->InsertNextPoint(-5.426, 5.429, 29.437);
+    points->InsertNextPoint(-4.140, -5.792, 12.248);
     spline->SetPoints(points);
 
     vtkSmartPointer<vtkParametricFunctionSource> functionSource = vtkSmartPointer<vtkParametricFunctionSource>::New();

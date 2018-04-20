@@ -6215,8 +6215,9 @@ void Centerline::GetRegionIds(vtkPolyData *t_colon, bool *Is_Fixed, int *RegionI
     NumberOfRegions[0] = region;
 }
 
-void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager){
+void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderManager *t_rendermanager_right, vtkSmartPointer<vtkPolyData> t_colon, FileManager *t_filemanager, std::string casename){
     bool use_spline = false;  // whether use spline
+    double chopoffratio = 0.1;
     double stepSize = 0.0005;
 
     vtkSmartPointer<vtkParametricSpline> spline = vtkSmartPointer<vtkParametricSpline>::New();
@@ -6416,7 +6417,11 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
     double MaxAngularMissing = 0;
     double AreaMissingRatioNumerator = 0;
     double AreaMissingRatioDenominator = 0;
+    double ValidationAreaMissingRatioNumerator = 0;
+    double ValidationAreaMissingRatioDenominator = 0;
     double AreaMissingRatio = 0;
+    double ValidationAreaMissingRatio = 0;
+    double length = 0;
 
     vtkSmartPointer<vtkPolyData> MaxAngularMissingCircle = vtkSmartPointer<vtkPolyData>::New();
 
@@ -6465,12 +6470,20 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
             vtkMath::Subtract(p, cp, v);
 
             aveR += log(vtkMath::Norm(v));
+            //aveR += vtkMath::Norm(v);
         }
         aveR = exp(aveR / cutline->GetNumberOfPoints());
+        //aveR /= cutline->GetNumberOfPoints();
         std::cout<<"  aveR = "<<aveR<<endl;
-        AreaMissingRatioDenominator += aveR * 360;
+        if(i < model->GetNumberOfPoints() - 1){
+            length += 3.5 / aveR * (S->GetValue(i + 1) - S->GetValue(i));
+        }
+        else{
+            length += 3.5 / aveR * (S->GetValue(i) - S->GetValue(i - 1));
+        }
 
-        std::vector<std::pair<double, double>> anglePairs;
+
+        std::vector<std::pair<double, double> > anglePairs;
         if(cutline->GetNumberOfPoints() > cutline->GetNumberOfLines()){
 
             double angularmissing = 0;
@@ -6518,12 +6531,12 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
             std::sort(anglePairs.begin(), anglePairs.end());
 
-            if(i == 60){
-                std::cout<<acos(-1)<<endl;
-            for(auto item : anglePairs){
-                std::cout<<item.first<<" "<<item.second<<endl;
-            }
-            }
+//            if(i == 60){
+//                std::cout<<acos(-1)<<endl;
+//            for(auto item : anglePairs){
+//                std::cout<<item.first<<" "<<item.second<<endl;
+//            }
+//            }
             std::pair<double, double> prev(0.0, 0.0);
             for(int c = 0; c < anglePairs.size(); c++){
                 std::pair<double, double> cur(anglePairs[c]);
@@ -6540,9 +6553,12 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
             }
             angularmissing += 2*PI - prev.second;
             angularmissing = angularmissing / PI * 180;
+
             AreaMissingRatioNumerator += angularmissing * aveR;
 
-
+            if(i >= chopoffratio*model->GetNumberOfPoints() && i <= (1-chopoffratio)*model->GetNumberOfPoints()){
+                ValidationAreaMissingRatioNumerator += angularmissing * aveR;
+            }
             //double angularmissing = vtkMath::AngleBetweenVectors(vfirst, vlast) * 180 / 3.1415926;
 
             std::cout<<"angular missing: "<<angularmissing<<endl;
@@ -6553,13 +6569,26 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
             }
             TotalAngularMissing += angularmissing;
         }
+        AreaMissingRatioDenominator += aveR * 360;
+        if(i >= chopoffratio*model->GetNumberOfPoints() && i <= (1-chopoffratio)*model->GetNumberOfPoints()){
+            ValidationAreaMissingRatioDenominator += aveR * 360;
+        }
     }
 
     std::cout<<endl<<"Max Angular Missing = "<<MaxAngularMissing<<endl<<endl;
     AngularMissingRatio = TotalAngularMissing / model->GetNumberOfPoints() / 360;
     std::cout<<"Angular Missing Ratio = "<<AngularMissingRatio<<endl<<endl;
     AreaMissingRatio = AreaMissingRatioNumerator / AreaMissingRatioDenominator;
-    std::cout<<"Area Missing Ratio = "<<AreaMissingRatio<<endl<<endl;
+    std::cout<<"Area Missing Ratio = "<< AreaMissingRatio <<endl<<endl;
+    ValidationAreaMissingRatio = ValidationAreaMissingRatioNumerator / ValidationAreaMissingRatioDenominator;
+    std::cout<<"Validation Area Missing Ratio = "<< ValidationAreaMissingRatio <<endl<<endl;
+    std::cout<<"Length of This Chunk = "<<length<<endl<<endl;
+
+    ofstream file;
+    std::string filename("./Link\ to\ AngularMissing/validation.txt");
+    file.open("./Link\ to\ AngularMissing/validation.txt", ios::app);
+    file<<casename<<" "<<AreaMissingRatio<<" "<<ValidationAreaMissingRatio<<" "<<length<<endl;
+    file.close();
 
 
     vtkSmartPointer<vtkPolyDataMapper> CutCirclesMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
