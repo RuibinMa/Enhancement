@@ -6233,6 +6233,7 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
 
     vtkSmartPointer<vtkDoubleArray> PlaneOriginals = vtkSmartPointer<vtkDoubleArray>::New(); PlaneOriginals->SetNumberOfComponents(3);
     vtkSmartPointer<vtkDoubleArray> PlaneNormals = vtkSmartPointer<vtkDoubleArray>::New(); PlaneNormals->SetNumberOfComponents(3);
+    double totalAveR = 0;
 
     // Smooth Centerline
 
@@ -6475,6 +6476,7 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
         aveR = exp(aveR / cutline->GetNumberOfPoints());
         //aveR /= cutline->GetNumberOfPoints();
         std::cout<<"  aveR = "<<aveR<<endl;
+        totalAveR += aveR;
         if(i < model->GetNumberOfPoints() - 1){
             length += 3.5 / aveR * (S->GetValue(i + 1) - S->GetValue(i));
         }
@@ -6584,10 +6586,14 @@ void Centerline::ComputeAngularMissing(RenderManager *t_rendermanager, RenderMan
     std::cout<<"Validation Area Missing Ratio = "<< ValidationAreaMissingRatio <<endl<<endl;
     std::cout<<"Length of This Chunk = "<<length<<endl<<endl;
 
+    totalAveR /= model->GetNumberOfPoints();
+    double alternativeLength = 3.5 / totalAveR * cumS;
+    std::cout<<"Alternative length = "<<alternativeLength<<endl<<endl;
+
     ofstream file;
     std::string filename("./Link\ to\ AngularMissing/validation.txt");
     file.open("./Link\ to\ AngularMissing/validation.txt", ios::app);
-    file<<casename<<" "<<AreaMissingRatio<<" "<<ValidationAreaMissingRatio<<" "<<length<<endl;
+    file<<casename<<" "<<AreaMissingRatio<<" "<<ValidationAreaMissingRatio<<" "<<length<<" "<<alternativeLength<<endl;
     file.close();
 
 
